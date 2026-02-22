@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; background: #000; font-family: 'Courier New', Courier, monospace; }
+        #ui-layer { position: absolute; top: 10px; left: 10px; color: gold; font-size: 20px; pointer-events: none; }
+    </style>
+</head>
+<body>
+<div id="ui-layer">Gold: <span id="gold-val">0</span> | HP: <span id="hp-val">100</span></div>
+<script>
+
+class MenuScene extends Phaser.Scene {
+    constructor() { super('MenuScene'); }
+    preload() {
+        this.load.image('bg', 'https://labs.phaser.io/assets/skies/space3.png');
+    }
+    create() {
+        this.add.image(400, 225, 'bg');
+        this.add.text(250, 50, "SELECT YOUR HERO", { fontSize: '40px', fill: '#fff', stroke: '#000', strokeThickness: 6 });
+
+        const chars = [
+            { name: 'AXEL (Warrior)', speed: 180, jump: -500, color: 0xff0000, tint: 'High HP' },
+            { name: 'REI (Ninja)', speed: 320, jump: -650, color: 0x00ffff, tint: 'Fast/Fragile' }
+        ];
+
+        chars.forEach((char, i) => {
+            let btn = this.add.text(250, 150 + (i * 100), char.name, { fontSize: '32px', backgroundColor: '#333', padding: 10 })
+                .setInteractive()
+                .on('pointerdown', () => {
+                    this.scene.start('MainGame', { char: char });
+                });
+        });
+    }
+}
+
+class MainGame extends Phaser.Scene {
+    constructor() { super('MainGame'); }
+    init(data) {
+        this.charData = data.char;
+        this.gold = 0;
+        this.bossHP = 100;
+    }
+
+    create() {
+        // Simple World Setup
+        this.physics.world.setBounds(0, 0, 1600, 450);
+        this.cameras.main.setBounds(0, 0, 1600, 450);
+
+        // Player with Selected Attributes
+        this.player = this.physics.add.sprite(100, 300, 'player').setTint(this.charData.color);
+        this.player.setCollideWorldBounds(true);
+        this.cameras.main.startFollow(this.player);
+
+        // BOSS: Gigabyte the Golem
+        this.boss = this.physics.add.sprite(1400, 300, 'boss').setScale(2).setTint(0x555555);
+        this.boss.setImmovable(true);
+        this.boss.body.allowGravity = false;
+
+        // HUD Buttons (Mobile)
+        this.createMobileButtons();
+
+        // Boss Attack Loop
+        this.time.addEvent({
+            delay: 2000,
+            callback: this.bossAttack,
+            callbackScope: this,
+            loop: true
+        });
+    }
+
+    createMobileButtons() {
+        let btnStyle = { fontSize: '30px', fill: '#fff', backgroundColor: '#444', padding: 12 };
+        this.btnLeft = this.add.text(50, 370, '◀', btnStyle).setInteractive().setScrollFactor(0);
+        this.btnRight = this.add.text(160, 370, '▶', btnStyle).setInteractive().setScrollFactor(0);
+        this.btnJump = this.add.text(650, 370, 'JUMP', btnStyle).setInteractive().setScrollFactor(0);
+        
+        // Input Logic
+        this.moveLeft = false; this.moveRight = false;
+        this.btnLeft.on('pointerdown', () => this.moveLeft = true).on('pointerup', () => this.moveLeft = false);
+        this.btnRight.on('pointerdown', () => this.moveRight = true).on('pointerup', () => this.moveRight = false);
+        this.btnJump.on('pointerdown', () => {
+            if(this.player.body.blocked.down) this.player.setVelocityY(this.charData.jump);
+        });
+    }
+
+    bossAttack() {
+        // Phase Logic: If HP < 50, fire twice as fast
+        let speed = this.bossHP < 50 ? 1000 : 2000;
+        console.log("Boss Attacks!");
+        // Logic for projectiles would go here
+    }
+
+    update() {
+        if (this.moveLeft) {
+            this.player.setVelocityX(-this.charData.speed);
+        } else if (this.moveRight) {
+            this.player.setVelocityX(this.charData.speed);
+        } else {
+            this.player.setVelocityX(0);
+        }
+    }
+}
+
+const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 450,
+    physics: { default: 'arcade', arcade: { gravity: { y: 1000 } } },
+    scene: [MenuScene, MainGame]
+};
+const game = new Phaser.Game(config);
+</script>
+</body>
+</html>
