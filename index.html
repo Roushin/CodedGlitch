@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Gilded Glitch</title>
+    <title>Gilded Glitch: Vector Edition</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
@@ -12,12 +12,11 @@
 </head>
 <body>
 <script>
-// --- GAME CONFIG ---
 const config = {
-    type: Phaser.AUTO,
+    type: Phaser.CANVAS, // Forced Canvas mode for maximum mobile compatibility
     width: 800,
     height: 450,
-    backgroundColor: '#0d0d1a',
+    backgroundColor: '#1a1a2e',
     physics: {
         default: 'arcade',
         arcade: { gravity: { y: 1200 }, debug: false }
@@ -27,113 +26,90 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-let player, platforms, coins, boss, projectiles;
+let player, platforms, coins, boss;
 let score = 0;
-let hp = 100;
-let gameState = 'MENU'; // MENU, PLAY, SHOP, BOSS
+let gameState = 'MENU'; 
 let selectedHero = null;
-let controls = {};
+let controls = { l: false, r: false };
 
-function preload() {
-    // No external images needed - we will generate them in 'create'
-}
+function preload() {} // No external assets to fail
 
 function create() {
-    // 1. Create Graphics-based Textures (Ensures no black screen)
-    const graphics = this.make.graphics({ x: 0, y: 0, add: false });
-    
-    // Create Player Texture
-    graphics.fillStyle(0xffffff);
-    graphics.fillRect(0, 0, 32, 48);
-    graphics.generateTexture('hero', 32, 48);
-    graphics.clear();
+    // Generate Vector Textures
+    let g = this.make.graphics({ x: 0, y: 0, add: false });
 
-    // Create Floor Texture
-    graphics.fillStyle(0x22aa22);
-    graphics.fillRect(0, 0, 800, 40);
-    graphics.generateTexture('ground', 800, 40);
-    graphics.clear();
+    // Hero Vector (Simple Rectangle)
+    g.fillStyle(0xffffff).fillRect(0, 0, 32, 48);
+    g.generateTexture('hero', 32, 48);
+    g.clear();
 
-    // Create Coin Texture
-    graphics.fillStyle(0xffd700);
-    graphics.fillCircle(8, 8, 8);
-    graphics.generateTexture('gold', 16, 16);
-    graphics.clear();
+    // Floor Vector
+    g.fillStyle(0x33ff33).fillRect(0, 0, 800, 40);
+    g.generateTexture('floor', 800, 40);
+    g.clear();
 
-    // 2. Setup Menu
-    this.menuText = this.add.text(400, 100, 'THE GILDED GLITCH', { fontSize: '40px', fill: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5);
-    this.loreText = this.add.text(400, 180, 'The Buffer Virus is pixelating the world.\nChoose your Hero to restore resolution!', { fontSize: '18px', fill: '#fff', align: 'center' }).setOrigin(0.5);
+    // Coin Vector
+    g.fillStyle(0xffff00).fillCircle(8, 8, 8);
+    g.generateTexture('gold', 16, 16);
+    g.clear();
 
-    // Character Buttons
-    this.createBtn(400, 280, 'AXEL (High HP)', 0xff4444, () => startLevel(this, {speed: 200, jump: -550, hp: 150, color: 0xff4444}));
-    this.createBtn(400, 350, 'REI (High Speed)', 0x44ffff, () => startLevel(this, {speed: 380, jump: -650, hp: 80, color: 0x44ffff}));
+    showMenu(this);
 }
 
-function createBtn(x, y, label, color, callback) {
-    const scene = game.scene.scenes[0];
-    let b = scene.add.text(x, y, label, { fontSize: '24px', backgroundColor: '#333', padding: 12 }).setOrigin(0.5).setInteractive();
-    b.on('pointerdown', callback);
+function showMenu(scene) {
+    scene.add.text(400, 100, 'GILDED GLITCH', { fontSize: '42px', fill: '#ffd700' }).setOrigin(0.5);
+    
+    // Axel Button
+    let btn1 = scene.add.text(400, 220, ' SELECT AXEL (TANK) ', { fontSize: '24px', backgroundColor: '#800', padding: 10 }).setOrigin(0.5).setInteractive();
+    btn1.on('pointerdown', () => startLevel(scene, {speed: 200, jump: -550, color: 0xff4444}));
+
+    // Rei Button
+    let btn2 = scene.add.text(400, 300, ' SELECT REI (SPEED) ', { fontSize: '24px', backgroundColor: '#008', padding: 10 }).setOrigin(0.5).setInteractive();
+    btn2.on('pointerdown', () => startLevel(scene, {speed: 400, jump: -650, color: 0x44ffff}));
 }
 
 function startLevel(scene, data) {
+    scene.children.removeAll(); // Clear Menu
     selectedHero = data;
     gameState = 'PLAY';
-    scene.menuText.destroy();
-    scene.loreText.destroy();
-    
-    // Platforms
-    platforms = scene.physics.add.staticGroup();
-    platforms.create(400, 430, 'ground');
-    platforms.create(600, 300, 'ground').setScale(0.3, 1).refreshBody();
 
-    // Player
-    player = scene.physics.add.sprite(100, 350, 'hero').setTint(data.color);
+    // Physics World
+    platforms = scene.physics.add.staticGroup();
+    platforms.create(400, 430, 'floor');
+    
+    player = scene.physics.add.sprite(100, 300, 'hero').setTint(data.color);
     player.setCollideWorldBounds(true);
     scene.physics.add.collider(player, platforms);
 
     // Coins
     coins = scene.physics.add.group();
-    for(let i=0; i<5; i++) {
-        coins.create(200 + (i*120), 300, 'gold').setBounceY(0.4);
+    for(let i=0; i<6; i++) {
+        coins.create(200 + (i*100), 380, 'gold');
     }
-    scene.physics.add.collider(coins, platforms);
-    scene.physics.add.overlap(player, coins, (p, c) => { c.destroy(); score += 10; scene.scoreDisplay.setText('GOLD: ' + score); });
+    scene.physics.add.overlap(player, coins, (p, c) => { c.destroy(); score += 10; ui.setText('GOLD: ' + score); });
 
-    // HUD
-    scene.scoreDisplay = scene.add.text(20, 20, 'GOLD: 0', { fontSize: '20px', fill: '#ffd700' });
+    // UI & Buttons
+    let ui = scene.add.text(20, 20, 'GOLD: 0', { fontSize: '24px', fill: '#fff' });
     
-    // MOBILE CONTROLS
-    let ctrlStyle = { fontSize: '30px', backgroundColor: '#444', padding: 15 };
-    controls.left = scene.add.text(60, 380, ' < ', ctrlStyle).setInteractive().setScrollFactor(0);
-    controls.right = scene.add.text(180, 380, ' > ', ctrlStyle).setInteractive().setScrollFactor(0);
-    controls.jump = scene.add.text(680, 380, 'UP', ctrlStyle).setInteractive().setScrollFactor(0);
-
-    controls.lDown = false; controls.rDown = false;
-    controls.left.on('pointerdown', () => controls.lDown = true).on('pointerup', () => controls.lDown = false);
-    controls.right.on('pointerdown', () => controls.rDown = true).on('pointerup', () => controls.rDown = false);
-    controls.jump.on('pointerdown', () => { if(player.body.touching.down) player.setVelocityY(selectedHero.jump); });
+    let bStyle = { fontSize: '32px', backgroundColor: '#444', padding: 15 };
+    scene.add.text(50, 360, 'LEFT', bStyle).setInteractive().on('pointerdown', () => controls.l = true).on('pointerup', () => controls.l = false);
+    scene.add.text(180, 360, 'RIGHT', bStyle).setInteractive().on('pointerdown', () => controls.r = true).on('pointerup', () => controls.r = false);
+    scene.add.text(650, 360, 'JUMP', bStyle).setInteractive().on('pointerdown', () => { if(player.body.touching.down) player.setVelocityY(data.jump); });
 }
 
 function update() {
-    if (gameState === 'PLAY' && player) {
-        if (controls.lDown) player.setVelocityX(-selectedHero.speed);
-        else if (controls.rDown) player.setVelocityX(selectedHero.speed);
+    if(gameState === 'PLAY' && player) {
+        if(controls.l) player.setVelocityX(-selectedHero.speed);
+        else if(controls.r) player.setVelocityX(selectedHero.speed);
         else player.setVelocityX(0);
 
-        // Transition to Boss logic could trigger here when score > 50
-        if(score >= 50 && !boss) spawnBoss(this);
+        if(score >= 60 && !boss) {
+            // Spawn Boss
+            boss = this.physics.add.sprite(700, 300, 'hero').setScale(3).setTint(0x555555);
+            this.physics.add.collider(boss, platforms);
+            this.add.text(700, 150, 'BOSS', {fontSize:'20px', fill:'#f00'}).setOrigin(0.5);
+        }
     }
-}
-
-function spawnBoss(scene) {
-    const graphics = scene.make.graphics({ x: 0, y: 0, add: false });
-    graphics.fillStyle(0x555555);
-    graphics.fillRect(0,0, 100, 150);
-    graphics.generateTexture('bossTex', 100, 150);
-    
-    boss = scene.physics.add.sprite(700, 300, 'bossTex');
-    scene.physics.add.collider(boss, platforms);
-    scene.add.text(700, 100, 'GIGABYTE GOLEM', { fill: '#ff0000' }).setOrigin(0.5);
 }
 </script>
 </body>
