@@ -3,114 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gilded Glitch: Vector Edition</title>
+    <title>Super Pixel World</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
-        canvas { display: block; margin: 0 auto; }
+        #shop-ui { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); border: 2px solid gold; padding: 20px;
+            color: white; display: none; z-index: 100; text-align: center;
+        }
     </style>
 </head>
 <body>
+    <div id="shop-ui">
+        <h2>SHOP</h2>
+        <button onclick="buyItem('jump')">Jump Boost (30 Gold)</button><br><br>
+        <button onclick="closeShop()">Exit Shop</button>
+    </div>
 <script>
 const config = {
-    type: Phaser.CANVAS, // Forced Canvas mode for maximum mobile compatibility
-    width: 800,
-    height: 450,
-    backgroundColor: '#1a1a2e',
-    physics: {
-        default: 'arcade',
-        arcade: { gravity: { y: 1200 }, debug: false }
-    },
+    type: Phaser.CANVAS, 
+    width: 800, height: 450,
+    backgroundColor: '#5c94fc', // Classic Mario Blue
+    physics: { default: 'arcade', arcade: { gravity: { y: 1000 } } },
     scene: { preload: preload, create: create, update: update }
 };
 
 const game = new Phaser.Game(config);
+let player, platforms, coins, enemies, cursors;
+let score = 0; let controls = {};
 
-let player, platforms, coins, boss;
-let score = 0;
-let gameState = 'MENU'; 
-let selectedHero = null;
-let controls = { l: false, r: false };
-
-function preload() {} // No external assets to fail
+function preload() {}
 
 function create() {
-    // Generate Vector Textures
     let g = this.make.graphics({ x: 0, y: 0, add: false });
-
-    // Hero Vector (Simple Rectangle)
-    g.fillStyle(0xffffff).fillRect(0, 0, 32, 48);
-    g.generateTexture('hero', 32, 48);
-    g.clear();
-
-    // Floor Vector
-    g.fillStyle(0x33ff33).fillRect(0, 0, 800, 40);
-    g.generateTexture('floor', 800, 40);
-    g.clear();
-
-    // Coin Vector
-    g.fillStyle(0xffff00).fillCircle(8, 8, 8);
-    g.generateTexture('gold', 16, 16);
-    g.clear();
-
-    showMenu(this);
-}
-
-function showMenu(scene) {
-    scene.add.text(400, 100, 'GILDED GLITCH', { fontSize: '42px', fill: '#ffd700' }).setOrigin(0.5);
     
-    // Axel Button
-    let btn1 = scene.add.text(400, 220, ' SELECT AXEL (TANK) ', { fontSize: '24px', backgroundColor: '#800', padding: 10 }).setOrigin(0.5).setInteractive();
-    btn1.on('pointerdown', () => startLevel(scene, {speed: 200, jump: -550, color: 0xff4444}));
+    // Create Hero Sprite
+    g.fillStyle(0xff0000).fillRect(0, 0, 30, 30); // Body
+    g.fillStyle(0x000000).fillRect(20, 5, 5, 5);  // Eye
+    g.generateTexture('hero', 30, 30); g.clear();
 
-    // Rei Button
-    let btn2 = scene.add.text(400, 300, ' SELECT REI (SPEED) ', { fontSize: '24px', backgroundColor: '#008', padding: 10 }).setOrigin(0.5).setInteractive();
-    btn2.on('pointerdown', () => startLevel(scene, {speed: 400, jump: -650, color: 0x44ffff}));
-}
+    // Create Platform Sprite
+    g.fillStyle(0x8b4513).fillRect(0, 0, 40, 40); // Brown Brick
+    g.lineStyle(2, 0x000000).strokeRect(0,0,40,40);
+    g.generateTexture('brick', 40, 40); g.clear();
 
-function startLevel(scene, data) {
-    scene.children.removeAll(); // Clear Menu
-    selectedHero = data;
-    gameState = 'PLAY';
+    // Create Enemy Sprite
+    g.fillStyle(0x800080).fillRect(0,0,30,30);
+    g.generateTexture('enemy', 30, 30); g.clear();
 
-    // Physics World
-    platforms = scene.physics.add.staticGroup();
-    platforms.create(400, 430, 'floor');
-    
-    player = scene.physics.add.sprite(100, 300, 'hero').setTint(data.color);
+    // Create Coin
+    g.fillStyle(0xffff00).fillCircle(10, 10, 10);
+    g.generateTexture('coin', 20, 20);
+
+    // Build Stage
+    platforms = this.physics.add.staticGroup();
+    for(let i=0; i<20; i++) platforms.create(i*40, 430, 'brick'); // Ground
+    platforms.create(200, 300, 'brick'); platforms.create(240, 300, 'brick'); // Floating
+    platforms.create(400, 200, 'brick');
+
+    // Player
+    player = this.physics.add.sprite(50, 300, 'hero');
     player.setCollideWorldBounds(true);
-    scene.physics.add.collider(player, platforms);
+    this.physics.add.collider(player, platforms);
+
+    // Enemies
+    enemies = this.physics.add.group();
+    let e = enemies.create(400, 380, 'enemy');
+    e.setCollideWorldBounds(true).setVelocityX(100);
+    this.physics.add.collider(enemies, platforms);
+    this.physics.add.overlap(player, enemies, (p, enemy) => {
+        if(p.body.touching.down && enemy.body.touching.up) {
+            enemy.destroy(); p.setVelocityY(-300); // Stomp like Mario
+        } else {
+            location.reload(); // Game Over
+        }
+    });
 
     // Coins
-    coins = scene.physics.add.group();
-    for(let i=0; i<6; i++) {
-        coins.create(200 + (i*100), 380, 'gold');
-    }
-    scene.physics.add.overlap(player, coins, (p, c) => { c.destroy(); score += 10; ui.setText('GOLD: ' + score); });
+    coins = this.physics.add.group({ key: 'coin', repeat: 5, setXY: { x: 150, y: 0, stepX: 100 } });
+    this.physics.add.collider(coins, platforms);
+    this.physics.add.overlap(player, coins, (p, c) => { c.destroy(); score += 10; scoreText.setText('GOLD: ' + score); });
 
-    // UI & Buttons
-    let ui = scene.add.text(20, 20, 'GOLD: 0', { fontSize: '24px', fill: '#fff' });
-    
-    let bStyle = { fontSize: '32px', backgroundColor: '#444', padding: 15 };
-    scene.add.text(50, 360, 'LEFT', bStyle).setInteractive().on('pointerdown', () => controls.l = true).on('pointerup', () => controls.l = false);
-    scene.add.text(180, 360, 'RIGHT', bStyle).setInteractive().on('pointerdown', () => controls.r = true).on('pointerup', () => controls.r = false);
-    scene.add.text(650, 360, 'JUMP', bStyle).setInteractive().on('pointerdown', () => { if(player.body.touching.down) player.setVelocityY(data.jump); });
+    // UI
+    let scoreText = this.add.text(16, 16, 'GOLD: 0', { fontSize: '24px', fill: '#fff' });
+
+    // Mobile Buttons
+    let bStyle = { fontSize: '20px', backgroundColor: '#333', padding: 15 };
+    this.add.text(20, 380, 'LEFT', bStyle).setInteractive().on('pointerdown', () => controls.l = true).on('pointerup', () => controls.l = false);
+    this.add.text(120, 380, 'RIGHT', bStyle).setInteractive().on('pointerdown', () => controls.r = true).on('pointerup', () => controls.r = false);
+    this.add.text(680, 380, 'JUMP', bStyle).setInteractive().on('pointerdown', () => { if(player.body.touching.down) player.setVelocityY(-500); });
+    this.add.text(700, 20, 'SHOP', {backgroundColor:'#f00', padding:5}).setInteractive().on('pointerdown', () => document.getElementById('shop-ui').style.display='block');
 }
 
 function update() {
-    if(gameState === 'PLAY' && player) {
-        if(controls.l) player.setVelocityX(-selectedHero.speed);
-        else if(controls.r) player.setVelocityX(selectedHero.speed);
-        else player.setVelocityX(0);
+    if (controls.l) player.setVelocityX(-160);
+    else if (controls.r) player.setVelocityX(160);
+    else player.setVelocityX(0);
 
-        if(score >= 60 && !boss) {
-            // Spawn Boss
-            boss = this.physics.add.sprite(700, 300, 'hero').setScale(3).setTint(0x555555);
-            this.physics.add.collider(boss, platforms);
-            this.add.text(700, 150, 'BOSS', {fontSize:'20px', fill:'#f00'}).setOrigin(0.5);
-        }
-    }
+    // Enemy AI - turn around at edge
+    enemies.children.iterate(e => {
+        if(e.body.blocked.left) e.setVelocityX(100);
+        else if(e.body.blocked.right) e.setVelocityX(-100);
+    });
 }
+
+function buyItem(type) {
+    if(score >= 30) { score -= 30; alert("Powerup Active!"); }
+}
+function closeShop() { document.getElementById('shop-ui').style.display='none'; }
 </script>
 </body>
 </html>
